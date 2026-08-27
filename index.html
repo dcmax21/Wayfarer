@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#071117" />
+    <title>Wayfarer</title>
+    <link rel="stylesheet" href="styles.css?v=inventory-overhaul-130" />
+  </head>
+  <body class="main-menu-open">
+    <main class="game-shell">
+      <canvas id="game" aria-label="Wayfarer space exploration game"></canvas>
+
+      <section id="main-menu" class="main-menu" aria-label="Wayfarer main menu">
+        <div class="main-menu-shade" aria-hidden="true"></div>
+        <header class="main-menu-system"><span>KESTREL EXPEDITION NETWORK</span><b>ONLINE</b></header>
+        <div id="main-menu-primary" class="main-menu-primary">
+          <span class="main-menu-eyebrow">INTERSTELLAR SURVEY PROGRAM</span>
+          <h1>WAYFARER</h1>
+          <p id="main-menu-save-summary">THALASSA · EXPEDITION READY</p>
+          <nav class="main-menu-actions" aria-label="Expedition options">
+            <button id="main-menu-continue" class="main-menu-action primary" type="button"><span aria-hidden="true">▶</span><strong>CONTINUE EXPEDITION</strong></button>
+            <button id="main-menu-new" class="main-menu-action" type="button"><span aria-hidden="true">＋</span><strong>NEW EXPEDITION</strong></button>
+            <button id="main-menu-settings" class="main-menu-action" type="button"><span aria-hidden="true">⚙</span><strong>SETTINGS</strong></button>
+          </nav>
+        </div>
+        <section id="main-menu-settings-panel" class="main-menu-settings" hidden aria-label="Main menu settings">
+          <header><button id="main-menu-settings-back" type="button" aria-label="Return to main menu">←</button><div><span>WAYFARER SYSTEMS</span><h2>Settings</h2></div></header>
+          <label class="main-menu-setting" for="main-menu-cycle-speed">
+            <span><strong>PLANETARY CYCLE</strong><small id="main-menu-cycle-value">1X</small></span>
+            <input id="main-menu-cycle-speed" type="range" min="0" max="4" step="0.25" value="1" aria-label="Day and night cycle speed">
+          </label>
+          <label class="main-menu-setting toggle" for="main-menu-launch-override">
+            <span><strong>LAUNCH OVERRIDE</strong><small>RESOURCE CHECK BYPASS</small></span>
+            <input id="main-menu-launch-override" type="checkbox"><i aria-hidden="true"></i>
+          </label>
+          <label class="main-menu-setting toggle" for="main-menu-build-override">
+            <span><strong>BUILD OVERRIDE</strong><small>CONSTRUCTION COST BYPASS</small></span>
+            <input id="main-menu-build-override" type="checkbox"><i aria-hidden="true"></i>
+          </label>
+        </section>
+        <footer class="main-menu-footer"><span>WAYFARER // KESTREL OS</span><b>BUILD 0.8.4</b></footer>
+      </section>
+
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <div>
+            <strong>WAYFARER</strong>
+            <div class="location-line"><span id="location">THALASSA • VERDANT MOON</span><b id="cycle-status">DAY · 09:36</b></div>
+          </div>
+        </div>
+        <div class="status-strip">
+          <div class="status-item life-status">
+            <div class="status-heading"><span class="status-label">LIFE SUPPORT</span><b id="life-readout">100%</b></div>
+            <div class="meter"><i id="life-meter"></i></div>
+          </div>
+          <div class="status-item tool-status">
+            <div class="status-heading"><span id="secondary-status-label" class="status-label">MULTI-TOOL</span><b id="tool-readout">100 EN</b></div>
+            <div class="meter tool"><i id="tool-meter"></i></div>
+          </div>
+          <div class="status-item hazard-status">
+            <div class="status-heading"><span id="hazard-status-label" class="status-label">ENVIRONMENT SAFE</span><b id="hazard-readout">0%</b></div>
+            <div class="meter hazard"><i id="hazard-meter"></i></div>
+          </div>
+        </div>
+      </header>
+
+      <aside class="mission-panel">
+        <span class="eyebrow">ACTIVE OBJECTIVE</span>
+        <strong id="objective-title">Fuel the Kestrel</strong>
+        <p id="objective-copy">Fabricate Launch Fuel at a crafting table.</p>
+        <div class="objective-progress">
+          <i id="objective-meter"></i>
+        </div>
+        <span id="objective-count">LAUNCH FUEL REQUIRED</span>
+      </aside>
+
+      <aside id="storm-alert" class="storm-alert" hidden aria-live="polite">
+        <span id="storm-alert-state">STORM FRONT INBOUND</span>
+        <strong id="storm-alert-name">ION-SPORE DELUGE</strong>
+        <div class="storm-alert-meter"><i id="storm-alert-meter"></i></div>
+        <small id="storm-alert-detail">LANDFALL IN 15S</small>
+      </aside>
+
+      <aside id="refinery-panel" class="refinery-panel" hidden aria-label="Refinery workstation">
+        <header class="ship-panel-header">
+          <div><span class="eyebrow">MATERIAL PROCESSING</span><strong>Refinery</strong></div>
+          <button id="close-refinery" class="icon-button" title="Close" aria-label="Close refinery">×</button>
+        </header>
+        <div class="refinery-body">
+          <section class="refinery-cargo">
+            <div class="refinery-section-heading"><span>RAW MATERIALS</span><b id="refinery-power-status">OFFLINE</b></div>
+            <div id="refinery-cargo-grid" class="refinery-cargo-grid"></div>
+          </section>
+          <section class="refinery-process" aria-label="Refinery process">
+            <div class="refinery-port-wrap"><span>INPUT</span><div id="refinery-input-slot" class="refinery-port" aria-label="Refinery input slot"></div></div>
+            <div class="refinery-channel"><span id="refinery-process-status">AWAITING INPUT</span><div><i id="refinery-process-meter"></i></div></div>
+            <div class="refinery-port-wrap"><span>OUTPUT</span><button id="refinery-output-slot" class="refinery-port" type="button" aria-label="Refinery output slot"></button></div>
+          </section>
+        </div>
+      </aside>
+
+      <aside id="crafting-panel" class="crafting-panel" hidden aria-label="Crafting table">
+        <header class="ship-panel-header">
+          <div><span id="crafting-panel-eyebrow" class="eyebrow">FIELD FABRICATION</span><strong id="crafting-panel-title">Crafting Table</strong></div>
+          <button id="close-crafting" class="icon-button" title="Close" aria-label="Close crafting table">×</button>
+        </header>
+        <div class="crafting-body">
+          <div class="crafting-heading"><span>AVAILABLE SCHEMATICS</span><b id="crafting-power-status">MANUAL SYSTEM</b></div>
+          <div id="crafting-recipe-list" class="crafting-recipes"></div>
+        </div>
+      </aside>
+
+      <aside id="base-systems-panel" class="base-systems-panel" hidden aria-label="Underground base systems">
+        <span class="eyebrow">HABITAT SYSTEMS</span>
+        <div><span>POWER</span><strong id="base-power-status">OFFLINE</strong></div>
+        <div><span>VAULT</span><strong id="base-vault-status">0/0</strong></div>
+        <div><span>SYNTHESIS</span><strong id="base-synthesis-status">POWER REQUIRED</strong></div>
+      </aside>
+
+      <aside id="ship-inventory-panel" class="ship-inventory-panel" hidden aria-label="Inventory and equipment">
+        <header class="ship-panel-header">
+          <div><span class="eyebrow">WAYFARER // LOGISTICS</span><strong>Inventory & Fabrication</strong></div>
+          <span class="inventory-panel-status"><i></i> EXOSUIT LINK ACTIVE</span>
+          <button id="close-ship-inventory" class="icon-button" title="Close" aria-label="Close inventory">×</button>
+        </header>
+        <nav class="inventory-tabs" aria-label="Inventory location">
+          <button type="button" class="inventory-tab active" data-inventory-view="exosuit"><b>01</b><span><strong>EXOSUIT</strong><small>CARGO & ARMOR</small></span></button>
+          <button type="button" class="inventory-tab" data-inventory-view="ship"><b>02</b><span><strong>KESTREL</strong><small>SHIP SYSTEMS</small></span></button>
+          <button type="button" class="inventory-tab" data-inventory-view="craft"><b>03</b><span><strong>CRAFT</strong><small>ITEM RECIPES</small></span></button>
+          <button type="button" class="inventory-tab" data-inventory-view="build"><b>04</b><span><strong>BUILD</strong><small>CONSTRUCTION</small></span></button>
+        </nav>
+        <div class="inventory-view active" data-inventory-panel-view="exosuit">
+          <div class="exosuit-inventory-layout">
+            <section class="inventory-character-preview" aria-label="Exosuit model">
+              <span class="ship-section-label">EXOSUIT CONFIGURATION</span>
+              <div class="inventory-character-model" aria-label="Character model preview">
+                <div class="inventory-character-frame" role="img" aria-label="Wayfarer exosuit in a neutral pose"></div>
+                <button class="armor-slot helmet" type="button" data-armor-slot="helmet" aria-label="Empty helmet slot"><i aria-hidden="true"></i><small>HELMET</small></button>
+                <button class="armor-slot chest" type="button" data-armor-slot="chest" aria-label="Empty chest armor slot"><i aria-hidden="true"></i><small>CHEST</small></button>
+                <button class="armor-slot gauntlets" type="button" data-armor-slot="gauntlets" aria-label="Empty gauntlets slot"><i aria-hidden="true"></i><small>GAUNTLETS</small></button>
+                <button class="armor-slot boots" type="button" data-armor-slot="boots" aria-label="Empty boots slot"><i aria-hidden="true"></i><small>BOOTS</small></button>
+              </div>
+              <div class="inventory-character-status">
+                <span><small>LIFE SUPPORT</small><strong id="inventory-life-readout">100%</strong></span>
+                <span><small>MULTI-TOOL</small><strong id="inventory-energy-readout">100 / 100</strong></span>
+                <span><small>ARMOR</small><strong id="inventory-armor-readout">0%</strong></span>
+              </div>
+            </section>
+            <div class="exosuit-inventory-details">
+              <section class="ship-panel-section ship-cargo" aria-label="Exosuit cargo">
+                <div class="ship-section-heading"><span class="ship-section-label">CARGO SLOTS</span><b id="exosuit-slot-count">0 / 32</b></div>
+                <div><i class="cargo-mark ferrite"></i><span>Ferrite</span><strong id="exosuit-ferrite-count">0</strong></div>
+                <div><i class="cargo-mark flora"></i><span>Flora</span><strong id="exosuit-flora-count">0</strong></div>
+                <div><i class="cargo-mark crystal"></i><span>Crystal</span><strong id="exosuit-crystal-count">0</strong></div>
+              </section>
+              <section class="ship-panel-section inventory-equipment" aria-label="Equipped technology">
+                <span class="ship-section-label">EQUIPPED TECHNOLOGY</span>
+                <div><span>Multi-tool</span><strong id="inventory-tool-capacity">100 EN</strong></div>
+                <div><span>Mining Optics</span><strong id="inventory-mining-level">STANDARD</strong></div>
+                <div><span>Beam Focuser</span><strong id="inventory-range-level">STANDARD</strong></div>
+                <div><span>Combat Emitter</span><strong id="inventory-combat-level">STANDARD</strong></div>
+                <div><span>Armor Rating</span><strong id="inventory-armor-level">0% REDUCTION</strong></div>
+              </section>
+              <section class="inventory-slot-grid" aria-label="Available inventory slots"></section>
+              <section class="inventory-hotbar-section" aria-label="Hotbar assignment">
+                <div class="ship-section-heading"><span class="ship-section-label">HOTBAR</span><b>8 SLOTS</b></div>
+                <div id="inventory-hotbar" class="inventory-hotbar"></div>
+              </section>
+            </div>
+          </div>
+        </div>
+        <div class="inventory-view" data-inventory-panel-view="ship" hidden>
+          <section class="ship-inventory-visual" aria-label="Assigned starship">
+            <span class="ship-section-label">ASSIGNED STARSHIP</span>
+            <div><img src="assets/optimized/pixel/kestrel.webp" alt="Kestrel explorer ship"></div>
+            <strong>KESTREL</strong>
+            <small>EXPLORER CLASS // ACTIVE</small>
+          </section>
+          <section class="ship-panel-section" aria-label="Ship status">
+            <span class="ship-section-label">SYSTEM STATUS</span>
+            <div class="ship-system"><div><strong>Pulse Engine</strong><span id="ship-engine-status">STANDARD</span></div><i><b id="ship-engine-meter"></b></i></div>
+            <div class="ship-system"><div><strong>Wing Actuators</strong><span id="ship-wing-status">NOMINAL</span></div><i><b id="ship-wing-meter"></b></i></div>
+            <div class="ship-system"><div><strong>Hull Integrity</strong><span id="ship-hull-status">100%</span></div><i><b id="ship-hull-meter"></b></i></div>
+            <div class="ship-system"><div><strong>Launch Array</strong><span id="ship-launch-status">OFFLINE</span></div><i><b id="ship-launch-meter"></b></i></div>
+            <div class="ship-system compact"><div><strong>Survey Scanner</strong><span id="ship-scanner-status">NOT INSTALLED</span></div></div>
+          </section>
+          <section class="ship-panel-section ship-cargo" aria-label="Ship cargo inventory">
+            <div class="ship-section-heading"><span class="ship-section-label">CARGO HOLD</span><b id="ship-cargo-total">0 UNITS</b></div>
+            <div><i class="cargo-mark ferrite"></i><span>Ferrite</span><strong id="ship-ferrite-count">0</strong></div>
+            <div><i class="cargo-mark flora"></i><span>Flora</span><strong id="ship-flora-count">0</strong></div>
+            <div><i class="cargo-mark crystal"></i><span>Crystal</span><strong id="ship-crystal-count">0</strong></div>
+          </section>
+        </div>
+        <div class="inventory-view" data-inventory-panel-view="craft" hidden>
+          <section class="inventory-crafting" aria-label="Craftable item blueprints">
+            <header><div><span class="ship-section-label">FIELD FABRICATION</span><strong>CRAFTABLE ITEMS</strong></div><span id="inventory-crafting-access">CRAFTING TABLE REQUIRED</span></header>
+            <div id="inventory-crafting-grid" class="inventory-crafting-grid"></div>
+          </section>
+        </div>
+        <div class="inventory-view" data-inventory-panel-view="build" hidden>
+          <section class="build-catalog" aria-label="Construction catalog">
+            <header><div><span class="ship-section-label">CONSTRUCTION CATALOG</span><strong id="build-catalog-context">SURFACE MODULES</strong></div><span>SELECT TO PLACE</span></header>
+            <div id="build-catalog-grid" class="build-catalog-grid"></div>
+          </section>
+        </div>
+      </aside>
+
+      <section id="resource-bar" class="resource-bar" aria-label="Inventory">
+        <span class="resource-heading">EXOSUIT CARGO</span>
+        <div class="resource ferrite"><i></i><span>FERRITE</span><strong id="ferrite-count">0</strong></div>
+        <div class="resource flora"><i></i><span>FLORA</span><strong id="flora-count">0</strong></div>
+        <div class="resource crystal"><i></i><span>CRYSTAL</span><strong id="crystal-count">0</strong></div>
+      </section>
+
+      <section id="hotbar" class="hotbar" aria-label="Equipment hotbar"></section>
+      <div id="item-tooltip" class="item-tooltip" role="tooltip" hidden><strong></strong><span></span></div>
+
+      <section id="build-toolbar" class="build-toolbar" hidden aria-label="Base construction">
+        <header><span class="eyebrow">BASE CONSTRUCTION</span><strong id="build-selection-name">Base Computer</strong><span id="build-selection-cost">FIRST BASE COMPUTER FREE</span></header>
+        <footer><span><kbd>CLICK</kbd> PLACE</span><span><kbd>R</kbd> ROTATE</span><span><kbd>RIGHT CLICK</kbd> DISMANTLE</span><span><kbd>B</kbd> CLOSE</span></footer>
+      </section>
+
+      <section id="quick-menu" class="quick-menu" hidden aria-label="Quick actions">
+        <button type="button" data-quick-action="recall"><span class="quick-icon">↓</span><strong>Recall Kestrel</strong><small>Choose landing site</small></button>
+        <button type="button" data-quick-action="cargo"><span class="quick-icon">▤</span><strong>Ship Cargo</strong><small>Inventory and systems</small></button>
+        <button type="button" data-quick-action="build"><span class="quick-icon">+</span><strong>Build Mode</strong><small>Base construction</small></button>
+      </section>
+
+      <div id="recall-hint" class="recall-hint" hidden><strong>PLACE LANDING SITE</strong><span>CLICK confirm · ESC cancel</span></div>
+
+      <div id="interaction" class="interaction" hidden>
+        <kbd id="interaction-key">E</kbd>
+        <div><strong id="interaction-title">Mine ferrite</strong><span id="interaction-progress"></span></div>
+      </div>
+
+      <div id="toast" class="toast" aria-live="polite"></div>
+
+      <section id="station-dialogue" class="station-dialogue" role="dialog" aria-label="Traveler dialogue" hidden>
+        <div class="station-dialogue-copy">
+          <span id="station-dialogue-meta">VISITING TRAVELER</span>
+          <h2 id="station-dialogue-name">Traveler</h2>
+          <p id="station-dialogue-text"></p>
+        </div>
+        <div class="station-dialogue-portrait" aria-hidden="true"><img id="station-dialogue-image" alt="" /></div>
+        <button id="station-dialogue-close" type="button" aria-label="Close dialogue" title="Close dialogue">×</button>
+      </section>
+
+      <section id="station-services-panel" class="station-services-panel" hidden aria-label="Meridian Relay services">
+        <header><div><span class="eyebrow">KEPLER REACH AUTHORITY</span><h2>Meridian Relay</h2></div><b>DOCK 04 · SECURE</b></header>
+        <div class="station-services-status">
+          <div><span>KESTREL HULL</span><strong id="station-hull-status">100%</strong></div>
+          <div><span>WING ACTUATORS</span><strong id="station-wing-status">96%</strong></div>
+          <div><span>EXOSUIT STATUS</span><strong id="station-suit-status">NOMINAL</strong></div>
+        </div>
+        <div class="station-services-actions">
+          <button id="station-repair" type="button"><span>DOCK SERVICES</span><strong>REPAIR KESTREL</strong><small>4 FERRITE</small></button>
+          <button id="station-resupply" type="button"><span>WAYFARER MEDICAL</span><strong>RESUPPLY EXOSUIT</strong><small>NO CHARGE</small></button>
+          <button id="station-exchange" type="button"><span>CARGO EXCHANGE</span><strong>REFINE TRADE LOT</strong><small>5 FERRITE · 1 CRYSTAL</small></button>
+        </div>
+        <button id="station-undock" class="station-undock" type="button">CLOSE TERMINAL</button>
+      </section>
+
+      <div class="controls" aria-label="Controls">
+        <span><kbd>WASD</kbd></span>
+        <span><kbd>E</kbd></span>
+        <span><kbd>SHIFT</kbd></span>
+        <span><kbd>TAB</kbd></span>
+        <span><kbd>I</kbd></span>
+        <span><kbd>B</kbd></span>
+        <span><kbd>X</kbd></span>
+        <span><kbd>M</kbd></span>
+        <span><kbd>-/+</kbd></span>
+        <span id="orbit-control" hidden><kbd>SPACE</kbd></span>
+        <span id="target-control" hidden><kbd>Q</kbd></span>
+      </div>
+
+      <section id="planet-map-panel" class="planet-map-panel" hidden aria-label="Planetary locator">
+        <header class="planet-map-header">
+          <div><span class="eyebrow">PLANETARY LOCATOR</span><h2 id="planet-map-name">THALASSA</h2></div>
+          <button id="close-planet-map" class="icon-button" title="Close" aria-label="Close planetary locator">×</button>
+        </header>
+        <canvas id="planet-map-canvas" width="560" height="330" aria-label="Current position on planet"></canvas>
+        <footer class="planet-map-readout">
+          <span><small>POSITION</small><strong id="planet-map-position">0° N · 0° E</strong></span>
+          <span><small>REGION</small><strong id="planet-map-region">EQUATORIAL</strong></span>
+          <span><small>LOCAL SOLAR TIME</small><strong id="planet-map-time">DAY · 12:00</strong></span>
+        </footer>
+      </section>
+
+      <section id="mission-terminal-panel" class="mission-terminal-panel" hidden aria-label="Kestrel mission terminal">
+        <header class="mission-terminal-header">
+          <div><span class="eyebrow">KESTREL OPERATIONS</span><h2>Mission Terminal</h2></div>
+          <button id="close-mission-terminal" class="icon-button" title="Close" aria-label="Close mission terminal">×</button>
+        </header>
+        <div class="mission-terminal-body">
+          <div class="mission-terminal-brief">
+            <span id="mission-terminal-status">ACTIVE EXPEDITION</span>
+            <h3>First Footfall</h3>
+            <p>Restore the Kestrel, establish a powered foothold on Thalassa, and return with a viable fauna sample.</p>
+          </div>
+          <div id="mission-terminal-stages" class="mission-terminal-stages"></div>
+          <footer class="mission-terminal-reward">
+            <div><span>MISSION REWARD</span><strong>VERDITE BIO-HELMET BLUEPRINT</strong><small>Advanced toxin protection · Exosuit Station fabrication</small></div>
+            <button id="mission-terminal-action" type="button" disabled>EXPEDITION IN PROGRESS</button>
+          </footer>
+        </div>
+      </section>
+
+      <section id="discovery-panel" class="discovery-panel" hidden aria-label="Discovery archive">
+        <header class="discovery-header">
+          <div>
+            <span class="eyebrow">WAYFARER ARCHIVE</span>
+            <h2>Discoveries</h2>
+          </div>
+          <button id="close-discoveries" class="icon-button" title="Close" aria-label="Close discoveries">×</button>
+        </header>
+        <nav class="discovery-tabs" role="tablist" aria-label="Discovery categories">
+          <button class="discovery-tab active" data-discovery-tab="system" role="tab" aria-selected="true">SYSTEM</button>
+          <button class="discovery-tab" data-discovery-tab="creatures" role="tab" aria-selected="false">CREATURES</button>
+          <button class="discovery-tab" data-discovery-tab="flora" role="tab" aria-selected="false">FLORA</button>
+          <button class="discovery-tab" data-discovery-tab="minerals" role="tab" aria-selected="false">MINERALS</button>
+          <button class="discovery-tab" data-discovery-tab="settings" role="tab" aria-selected="false">SETTINGS</button>
+        </nav>
+        <div class="discovery-content">
+          <section id="discovery-system" class="discovery-view active" role="tabpanel"></section>
+          <section id="discovery-creatures" class="discovery-view" role="tabpanel"></section>
+          <section id="discovery-flora" class="discovery-view" role="tabpanel"></section>
+          <section id="discovery-minerals" class="discovery-view" role="tabpanel"></section>
+          <section id="discovery-settings" class="discovery-view settings-view" role="tabpanel">
+            <label class="setting-row cycle-setting" for="setting-cycle-speed">
+              <span><strong>Day/Night Cycle</strong><small>Adjust the speed of planetary rotation or pause local time.</small></span>
+              <span class="cycle-speed-control"><output id="cycle-speed-value" for="setting-cycle-speed">1x</output><span class="cycle-speed-slider"><input id="setting-cycle-speed" type="range" min="0" max="4" step="0.25" value="1" aria-label="Day and night cycle speed"><span class="cycle-speed-limits" aria-hidden="true"><b>PAUSE</b><b>4X</b></span></span></span>
+            </label>
+            <label class="setting-row" for="setting-launch-override">
+              <span><strong>Launch Override</strong><small>Allow planetary launch without consuming Launch Fuel.</small></span>
+              <input id="setting-launch-override" type="checkbox" role="switch" aria-label="Allow launch without resources">
+              <i class="toggle-track" aria-hidden="true"></i>
+            </label>
+            <label class="setting-row" for="setting-build-override">
+              <span><strong>Build Override</strong><small>Construct base modules without consuming resources.</small></span>
+              <input id="setting-build-override" type="checkbox" role="switch" aria-label="Allow base building without resources">
+              <i class="toggle-track" aria-hidden="true"></i>
+            </label>
+            <div class="setting-row setting-action">
+              <span><strong>Clear Construction</strong><small>Remove every surface and underground structure from all planets. The Kestrel and its systems are preserved.</small></span>
+              <button id="clear-all-buildings" class="danger-button" type="button">REMOVE ALL</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="upgrade-panel" class="upgrade-panel" hidden>
+        <button id="close-upgrades" class="icon-button" title="Close" aria-label="Close upgrades">×</button>
+        <span class="eyebrow">SHIP SYSTEMS</span>
+        <h2>Exoship Kestrel</h2>
+        <p>Spend gathered materials before launch.</p>
+        <div class="upgrade-list">
+          <button class="upgrade" data-upgrade="engine">
+            <span class="upgrade-icon">↟</span>
+            <span><strong>Pulse Engine</strong><small>Faster flight and thrust</small></span>
+            <b>6 <i class="cost ferrite"></i></b>
+          </button>
+          <button class="upgrade" data-upgrade="scanner">
+            <span class="upgrade-icon">⌁</span>
+            <span><strong>Survey Scanner</strong><small>Reveal nearby rare deposits</small></span>
+            <b>4 <i class="cost crystal"></i></b>
+          </button>
+          <div class="upgrade-section-label">MULTI-TOOL SYSTEMS</div>
+          <button class="upgrade" data-upgrade="tool-mining">
+            <span class="upgrade-icon">M</span>
+            <span><strong>Mining Optics</strong><small>Faster material extraction</small></span>
+            <b data-upgrade-cost></b>
+          </button>
+          <button class="upgrade" data-upgrade="tool-capacity">
+            <span class="upgrade-icon">E</span>
+            <span><strong>Energy Cell</strong><small>Increase multi-tool capacity</small></span>
+            <b data-upgrade-cost></b>
+          </button>
+          <button class="upgrade" data-upgrade="tool-range">
+            <span class="upgrade-icon">R</span>
+            <span><strong>Beam Focuser</strong><small>Increase multi-tool range</small></span>
+            <b data-upgrade-cost></b>
+          </button>
+          <button class="upgrade" data-upgrade="tool-combat">
+            <span class="upgrade-icon">C</span>
+            <span><strong>Combat Emitter</strong><small>Increase damage to hostiles</small></span>
+            <b data-upgrade-cost></b>
+          </button>
+        </div>
+        <button id="launch-button" class="launch-button" disabled>LAUNCH FUEL REQUIRED</button>
+      </section>
+
+      <div id="title-card" class="title-card">
+        <span>PLANETARY ARCHIVE</span>
+        <h1>THALASSA</h1>
+        <p>Verdant moon • Sentinel presence low</p>
+      </div>
+    </main>
+    <script src="game.js?v=inventory-overhaul-173"></script>
+  </body>
+</html>
