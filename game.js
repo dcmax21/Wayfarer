@@ -4435,6 +4435,9 @@ const inventoryCraftingGroups = [
   { name: "MATERIALS & COMPONENTS", categories: ["MATERIAL", "COMPONENT"] },
   { name: "FIELD EQUIPMENT", categories: ["FIELD EQUIPMENT"] },
   { name: "BASIC EXOSUIT ARMOR", categories: ["ARMOR"] },
+  { name: "BASE MODULES", categories: ["BASE MODULE", "WORKSTATION"] },
+  { name: "POWER & WATER SYSTEMS", categories: ["POWER SYSTEM", "WATER SYSTEM"] },
+  { name: "LIFE SUPPORT MODULES", categories: ["LIFE SUPPORT"] },
 ];
 function renderInventoryCrafting() {
   if (!ui.inventoryCrafting) return;
