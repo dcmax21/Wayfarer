@@ -121,6 +121,11 @@ const ui = {
   mainMenuCycleValue: document.querySelector("#main-menu-cycle-value"),
   mainMenuLaunchOverride: document.querySelector("#main-menu-launch-override"),
   mainMenuBuildOverride: document.querySelector("#main-menu-build-override"),
+  mainMenuPlayerName: document.querySelector("#main-menu-player-name"),
+  mainMenuNetworkStatus: document.querySelector("#main-menu-network-status"),
+  playerName: document.querySelector("#setting-player-name"),
+  multiplayerStatus: document.querySelector("#multiplayer-status"),
+  multiplayerCount: document.querySelector("#multiplayer-count"),
   stationServices: document.querySelector("#station-services-panel"),
   stationHullStatus: document.querySelector("#station-hull-status"),
   stationWingStatus: document.querySelector("#station-wing-status"),
@@ -154,6 +159,7 @@ let storedSaveAvailable = false;
 let gameSessionStarted = false;
 let newExpeditionConfirmTimer = 0;
 const visibleDrawables = [];
+const multiplayer = { socket: null, id: null, players: new Map(), status: "connecting", reconnectTimer: 0, retryDelay: 1000, sendAccumulator: 0, name: "WAYFARER" };
 
 const player = { x: 160, y: 90, vx: 0, vy: 0, angle: 0, facing: 0, walkTime: 0, speed: 150, inventory: { ferrite: 0, flora: 0, crystal: 0 }, items: {}, tool: 100, life: 100, exposure: 0, lastDamage: -99 };
 const resourceDefinitions = {
@@ -3250,6 +3256,70 @@ function drawPlayer() {
   ctx.restore();
 }
 
+function drawMultiplayerNameplate(remote, y) {
+  ctx.font = "900 7px Inter, sans-serif"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  const label = remote.name || "WAYFARER"; const labelWidth = Math.max(62, ctx.measureText(label).width + 18);
+  ctx.fillStyle = "rgba(2,8,11,.86)"; ctx.fillRect(-labelWidth / 2, y - 8, labelWidth, 16);
+  ctx.fillStyle = remote.color || "#62dced"; ctx.fillRect(-labelWidth / 2, y - 8, 3, 16);
+  ctx.fillStyle = "#e8f1ee"; ctx.fillText(label, 0, y);
+}
+
+function drawRemoteExplorer(remote, x, y, drawHeight = 55) {
+  ctx.save(); ctx.translate(Math.round(x), Math.round(y));
+  ctx.fillStyle = "rgba(0,0,0,.28)"; ctx.beginPath(); ctx.ellipse(4, 7, 10, 6, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = remote.color || "#62dced"; ctx.globalAlpha = .68; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.ellipse(0, 8, 14, 7, 0, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
+  if (playerImage.complete && playerImage.naturalWidth) {
+    const cellW = playerImage.naturalWidth / 4; const cellH = playerImage.naturalHeight / 4;
+    const frame = remote.moving ? Math.floor(remote.walkTime * 9) % 4 : 0; const drawW = drawHeight * cellW / cellH;
+    ctx.drawImage(playerImage, frame * cellW, remote.facing * cellH, cellW, cellH, Math.round(-drawW / 2), Math.round(-drawHeight + 10), Math.round(drawW), drawHeight);
+  } else { ctx.fillStyle = "#e8eee9"; ctx.fillRect(-7, -18, 14, 24); ctx.fillStyle = remote.color || "#163c47"; ctx.fillRect(-6, -17, 12, 6); }
+  drawMultiplayerNameplate(remote, -drawHeight - 5); ctx.restore();
+}
+
+function drawRemoteShip(remote, x, y, scale = 1) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(remote.angle || 0);
+  ctx.fillStyle = "rgba(0,0,0,.24)"; ctx.beginPath(); ctx.ellipse(7, 15 * scale, 42 * scale, 21 * scale, 0, 0, TAU); ctx.fill();
+  if (remote.moving || remote.pulse) {
+    const length = (remote.pulse ? 55 : 20) * scale; ctx.fillStyle = remote.color || "rgba(98,220,237,.72)";
+    ctx.beginPath(); ctx.moveTo(-31 * scale, -5 * scale); ctx.lineTo((-31 * scale) - length, 0); ctx.lineTo(-31 * scale, 5 * scale); ctx.closePath(); ctx.fill();
+  }
+  if (!drawKestrelArt(scale)) { ctx.fillStyle = "#dfe9e5"; ctx.beginPath(); ctx.moveTo(28 * scale, 0); ctx.lineTo(-23 * scale, -15 * scale); ctx.lineTo(-16 * scale, 0); ctx.lineTo(-23 * scale, 15 * scale); ctx.closePath(); ctx.fill(); }
+  ctx.restore(); ctx.save(); ctx.translate(x, y); drawMultiplayerNameplate(remote, -46 * scale); ctx.restore();
+}
+
+function multiplayerZone() {
+  if (state.mode === "caveInterior" || state.mode === "mineshaft") return String(naturalCave.active?.key || "");
+  if (state.mode === "baseInterior") return String(underground.entranceId ?? "");
+  return "";
+}
+
+function remoteInCurrentArea(remote) {
+  if (!remote.active || remote.mode !== state.mode || remote.zone !== multiplayerZone()) return false;
+  return state.mode === "space" || remote.planet === state.planet;
+}
+
+function drawRemoteScreenActors() {
+  for (const remote of multiplayer.players.values()) {
+    if (!remoteInCurrentArea(remote)) continue;
+    const point = screenPoint(remote.x, remote.y);
+    if (point.x < -100 || point.x > width + 100 || point.y < -100 || point.y > height + 100) continue;
+    if (state.mode === "planetFlight") drawRemoteShip(remote, point.x, point.y, 1.08); else drawRemoteExplorer(remote, point.x, point.y);
+  }
+}
+
+function drawRemoteDirectActors() {
+  for (const remote of multiplayer.players.values()) if (remoteInCurrentArea(remote)) drawRemoteExplorer(remote, remote.x, remote.y, 50);
+}
+
+function drawRemoteSpaceShips() {
+  for (const remote of multiplayer.players.values()) {
+    if (!remoteInCurrentArea(remote)) continue;
+    const point = spacePoint(remote.x, remote.y);
+    if (point.x < -120 || point.x > width + 120 || point.y < -120 || point.y > height + 120) continue;
+    drawRemoteShip(remote, point.x, point.y, .78);
+  }
+}
+
 function drawMultiToolHarvest(target) {
   const dx = target.x - player.x; const dy = target.y - player.y; const distance = Math.hypot(dx, dy) || 1;
   const directionX = dx / distance; const directionY = dy / distance; const sideX = -directionY; const sideY = directionX;
@@ -3376,6 +3446,7 @@ function drawSpace() {
   });
 
   drawOrbitalStation();
+  drawRemoteSpaceShips();
 
   if (targetScreen.x < 20 || targetScreen.x > width - 20 || targetScreen.y < 80 || targetScreen.y > height - 50) {
     const angle = Math.atan2(targetScreen.y - height / 2, targetScreen.x - width / 2); const mx = Math.max(35, Math.min(width - 35, width / 2 + Math.cos(angle) * Math.min(width, height) * .39)); const my = Math.max(90, Math.min(height - 55, height / 2 + Math.sin(angle) * Math.min(width, height) * .39));
@@ -3513,7 +3584,7 @@ function drawStationInterior(options = {}) {
   if (!docking) {
     ctx.strokeStyle = "#f2c45d"; ctx.lineWidth = 5;
     for (const side of [-1, 1]) { ctx.beginPath(); ctx.moveTo(side * 112, 790); ctx.lineTo(side * 72, 757); ctx.lineTo(side * 50, 733); ctx.stroke(); }
-    drawStationPlayer();
+    drawRemoteDirectActors(); drawStationPlayer();
   }
   ctx.restore();
   const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .2, width / 2, height / 2, Math.max(width, height) * .74); vignette.addColorStop(0, "transparent"); vignette.addColorStop(1, "rgba(0,2,5,.68)"); ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
@@ -5083,6 +5154,7 @@ function toggleShipInventory(preferredView = null) {
 function syncMainMenuSettings() {
   ui.mainMenuCycleSpeed.value = settings.cycleSpeed; ui.mainMenuCycleValue.textContent = formatCycleSpeed().toUpperCase();
   ui.mainMenuLaunchOverride.checked = settings.launchOverride; ui.mainMenuBuildOverride.checked = settings.buildOverride;
+  ui.mainMenuPlayerName.value = multiplayer.name; ui.playerName.value = multiplayer.name;
 }
 
 function updateMainMenu() {
@@ -5174,6 +5246,7 @@ function drawPlanetScene(showPlayer = true) {
   drawWaterPipes();
   drawBases();
   if (!showPlayer) drawBaseRoofs();
+  drawRemoteScreenActors();
   if (showPlayer && shipRecall.active) { drawPlayer(); drawBaseRoofs(); drawShip(); }
   else { drawShip(); if (showPlayer) { drawPlayer(); drawBaseRoofs(); } }
   drawBuildPreview();
@@ -5304,7 +5377,7 @@ function drawUndergroundScene() {
   drawPowerWires();
   drawWaterPipes();
   drawBatteryReadouts(true);
-  drawUndergroundElevator(); drawUndergroundDigTarget(); drawPlayer(); drawBuildPreview();
+  drawUndergroundElevator(); drawUndergroundDigTarget(); drawRemoteScreenActors(); drawPlayer(); drawBuildPreview();
   ctx.restore();
   const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .18, width / 2, height / 2, Math.max(width, height) * .76);
   vignette.addColorStop(0, "rgba(0,0,0,0)"); vignette.addColorStop(1, "rgba(0,2,3,.78)"); ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
@@ -5339,7 +5412,7 @@ function drawNaturalCaveFeatures(cave) {
 function drawNaturalCaveScene() {
   const cave = naturalCave.active; ctx.fillStyle = "#030708"; ctx.fillRect(0, 0, width, height); if (!cave) return;
   ctx.save(); ctx.translate(width / 2, height / 2); ctx.scale(camera.zoom, camera.zoom); ctx.translate(-width / 2, -height / 2);
-  drawUndergroundTerrain(cave.cells, naturalCavernFloorImage, naturalCavernWallImage); drawNaturalCaveDeposits(cave); drawNaturalCaveFeatures(cave); drawPlayer(); ctx.restore();
+  drawUndergroundTerrain(cave.cells, naturalCavernFloorImage, naturalCavernWallImage); drawNaturalCaveDeposits(cave); drawNaturalCaveFeatures(cave); drawRemoteScreenActors(); drawPlayer(); ctx.restore();
   const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .15, width / 2, height / 2, Math.max(width, height) * .72);
   vignette.addColorStop(0, "rgba(0,0,0,.02)"); vignette.addColorStop(1, "rgba(0,2,3,.86)"); ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
 }
@@ -5379,7 +5452,7 @@ function drawMineshaftScene() {
     else { ctx.fillStyle = opened ? "#27302e" : "#46554f"; ctx.fillRect(-24, -15, 48, 30); ctx.strokeStyle = "#a18b57"; ctx.lineWidth = 3; ctx.strokeRect(-24, -15, 48, 30); }
     ctx.restore();
   });
-  drawPlayer(); ctx.restore();
+  drawRemoteScreenActors(); drawPlayer(); ctx.restore();
   const vignette = ctx.createRadialGradient(width / 2, height / 2, 90, width / 2, height / 2, Math.max(width, height) * .72); vignette.addColorStop(0, "rgba(0,0,0,.05)"); vignette.addColorStop(1, "rgba(0,0,0,.88)"); ctx.fillStyle = vignette; ctx.fillRect(0, 0, width, height);
 }
 
@@ -5428,7 +5501,7 @@ function drawShipInterior() {
   ctx.fillRect(-152, -15, 29, 3); ctx.fillRect(-152, -8, 20, 2); ctx.fillRect(-152, -3, 25, 2);
   ctx.restore();
 
-  drawInteriorPlayer();
+  drawRemoteDirectActors(); drawInteriorPlayer();
   ctx.restore();
 
   const vignette = ctx.createRadialGradient(width / 2, height / 2, Math.min(width, height) * .22, width / 2, height / 2, Math.max(width, height) * .68);
@@ -5613,7 +5686,86 @@ function render() {
   updateHudTelemetry();
 }
 
-function frame(now) { frameSerial++; frameDt = Math.min(.05, (now - last) / 1000); last = now; update(frameDt); render(); requestAnimationFrame(frame); }
+function cleanPlayerName(value) {
+  const cleaned = String(value || "WAYFARER").replace(/[^a-z0-9 _-]/gi, "").trim().slice(0, 16);
+  return cleaned || "WAYFARER";
+}
+
+function updateMultiplayerStatus(status = multiplayer.status) {
+  multiplayer.status = status; const online = status === "online"; const count = multiplayer.players.size + (online ? 1 : 0);
+  ui.multiplayerStatus.classList.toggle("online", online); ui.multiplayerStatus.classList.toggle("offline", status === "offline");
+  ui.multiplayerStatus.classList.toggle("connecting", status === "connecting");
+  ui.multiplayerCount.textContent = online ? `${count} ONLINE` : status === "connecting" ? "CONNECTING" : "OFFLINE";
+  ui.mainMenuNetworkStatus.textContent = online ? `LAN CO-OP · ${count} ONLINE` : status === "connecting" ? "LAN CO-OP · CONNECTING" : "LAN CO-OP · OFFLINE";
+}
+
+function acceptRemotePlayer(incoming) {
+  if (!incoming?.id || incoming.id === multiplayer.id) return;
+  const previous = multiplayer.players.get(incoming.id); const changedArea = previous && (previous.mode !== incoming.mode || previous.planet !== incoming.planet || previous.zone !== incoming.zone);
+  if (!previous) multiplayer.players.set(incoming.id, { ...incoming, x: incoming.x, y: incoming.y, targetX: incoming.x, targetY: incoming.y, walkTime: 0 });
+  else {
+    previous.name = incoming.name; previous.color = incoming.color; previous.active = incoming.active; previous.mode = incoming.mode; previous.planet = incoming.planet; previous.zone = incoming.zone;
+    previous.angle = incoming.angle; previous.facing = incoming.facing; previous.moving = incoming.moving; previous.pulse = incoming.pulse;
+    previous.targetX = incoming.x; previous.targetY = incoming.y;
+    if (changedArea || Math.hypot(previous.x - incoming.x, previous.y - incoming.y) > 2400) { previous.x = incoming.x; previous.y = incoming.y; }
+  }
+  updateMultiplayerStatus();
+}
+
+function sendMultiplayerHello() {
+  if (multiplayer.socket?.readyState === WebSocket.OPEN) multiplayer.socket.send(JSON.stringify({ type: "hello", name: multiplayer.name }));
+}
+
+function connectMultiplayer() {
+  clearTimeout(multiplayer.reconnectTimer);
+  if (location.protocol === "file:") { updateMultiplayerStatus("offline"); return; }
+  updateMultiplayerStatus("connecting");
+  const protocol = location.protocol === "https:" ? "wss:" : "ws:"; const socket = new WebSocket(`${protocol}//${location.host}/multiplayer`); multiplayer.socket = socket;
+  socket.addEventListener("open", () => { if (multiplayer.socket !== socket) return; multiplayer.retryDelay = 1000; updateMultiplayerStatus("online"); sendMultiplayerHello(); });
+  socket.addEventListener("message", event => {
+    let message; try { message = JSON.parse(event.data); } catch { return; }
+    if (message.type === "welcome") { multiplayer.id = message.id; multiplayer.players.clear(); for (const remote of message.players || []) acceptRemotePlayer(remote); }
+    else if (message.type === "player") acceptRemotePlayer(message.player);
+    else if (message.type === "leave") { multiplayer.players.delete(message.id); updateMultiplayerStatus(); }
+  });
+  socket.addEventListener("close", () => {
+    if (multiplayer.socket !== socket) return; multiplayer.socket = null; multiplayer.id = null; multiplayer.players.clear(); updateMultiplayerStatus("offline");
+    multiplayer.reconnectTimer = setTimeout(connectMultiplayer, multiplayer.retryDelay); multiplayer.retryDelay = Math.min(10000, multiplayer.retryDelay * 1.7);
+  });
+  socket.addEventListener("error", () => {});
+}
+
+function currentMultiplayerActor() {
+  if (state.mode === "space") return spaceShip;
+  if (state.mode === "planetFlight") return ship;
+  if (state.mode === "interior") return interiorPlayer;
+  if (state.mode === "stationInterior") return stationPlayer;
+  return player;
+}
+
+function localMultiplayerSnapshot() {
+  const allowed = ["planet", "planetFlight", "space", "interior", "baseInterior", "caveInterior", "mineshaft", "stationInterior"];
+  const actor = currentMultiplayerActor(); const speed = Math.hypot(actor.vx || 0, actor.vy || 0);
+  return { active: gameSessionStarted && allowed.includes(state.mode), mode: state.mode, planet: state.planet, zone: multiplayerZone(), x: actor.x, y: actor.y, angle: actor.angle || 0, facing: actor.facing || 0, moving: speed > 10, pulse: Boolean(state.mode === "space" && spaceShip.pulse) };
+}
+
+function updateMultiplayer(dt) {
+  for (const remote of multiplayer.players.values()) {
+    const factor = 1 - Math.exp(-dt * 14); remote.x += (remote.targetX - remote.x) * factor; remote.y += (remote.targetY - remote.y) * factor;
+    if (remote.moving) remote.walkTime += dt;
+  }
+  multiplayer.sendAccumulator += dt;
+  if (multiplayer.sendAccumulator < .1 || multiplayer.socket?.readyState !== WebSocket.OPEN) return;
+  multiplayer.sendAccumulator %= .1; multiplayer.socket.send(JSON.stringify({ type: "state", state: localMultiplayerSnapshot() }));
+}
+
+function setMultiplayerName(value) {
+  multiplayer.name = cleanPlayerName(value); ui.mainMenuPlayerName.value = multiplayer.name; ui.playerName.value = multiplayer.name;
+  try { localStorage.setItem("wayfarer.playerName", multiplayer.name); } catch {}
+  sendMultiplayerHello();
+}
+
+function frame(now) { frameSerial++; frameDt = Math.min(.05, (now - last) / 1000); last = now; update(frameDt); updateMultiplayer(frameDt); render(); requestAnimationFrame(frame); }
 
 let autosavePending = false;
 function scheduleAutosave() {
@@ -5694,6 +5846,10 @@ ui.mainMenuBuildOverride.addEventListener("change", () => {
   try { localStorage.setItem("wayfarer.buildOverride", String(settings.buildOverride)); } catch {}
   if (build.active) updateBuildToolbar(); if (gameSessionStarted) saveGame();
 });
+ui.mainMenuPlayerName.addEventListener("change", () => setMultiplayerName(ui.mainMenuPlayerName.value));
+ui.mainMenuPlayerName.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); ui.mainMenuPlayerName.blur(); } });
+ui.playerName.addEventListener("change", () => setMultiplayerName(ui.playerName.value));
+ui.playerName.addEventListener("keydown", event => { if (event.key === "Enter") { event.preventDefault(); ui.playerName.blur(); } });
 ui.stationRepair.addEventListener("click", repairShipAtStation);
 ui.stationResupply.addEventListener("click", resupplyAtStation);
 ui.stationExchange.addEventListener("click", exchangeStationCargo);
@@ -5836,6 +5992,7 @@ document.querySelectorAll(".upgrade").forEach(button => button.addEventListener(
 
 for (let i = 0; i < 180; i++) state.stars.push({ x: Math.random() * width, y: Math.random() * height, size: .5 + Math.random() * 1.5, speed: 12 + Math.random() * 38, alpha: .2 + Math.random() * .7 });
 const savedGame = readSaveGame();
+try { multiplayer.name = cleanPlayerName(localStorage.getItem("wayfarer.playerName") || `WAYFARER-${Math.floor(100 + Math.random() * 900)}`); localStorage.setItem("wayfarer.playerName", multiplayer.name); } catch { multiplayer.name = "WAYFARER"; }
 storedSaveAvailable = Boolean(savedGame);
 if (Number.isInteger(savedGame?.planet) && planets[savedGame.planet]) state.planet = savedGame.planet;
 resize(); makeSolarSystem(); makeWorld(state.planet); applySaveGame(savedGame); placeSurfaceCaveEntrances(state.planet);
@@ -5847,5 +6004,6 @@ updateUI(); updateCycleHud();
 let autoStartNewExpedition = false;
 try { autoStartNewExpedition = sessionStorage.getItem("wayfarer.autoStart") === "new"; sessionStorage.removeItem("wayfarer.autoStart"); } catch {}
 updateMainMenu();
+connectMultiplayer();
 if (autoStartNewExpedition) closeMainMenu(); else openMainMenu();
 setInterval(scheduleAutosave, 5000); addEventListener("beforeunload", () => { if (gameSessionStarted) saveGame(); }); requestAnimationFrame(frame);

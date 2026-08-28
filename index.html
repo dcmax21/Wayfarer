@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#071117" />
     <title>Wayfarer</title>
-    <link rel="stylesheet" href="styles.css?v=inventory-overhaul-130" />
+    <link rel="stylesheet" href="styles.css?v=lan-multiplayer-131" />
   </head>
   <body class="main-menu-open">
     <main class="game-shell">
@@ -13,7 +13,7 @@
 
       <section id="main-menu" class="main-menu" aria-label="Wayfarer main menu">
         <div class="main-menu-shade" aria-hidden="true"></div>
-        <header class="main-menu-system"><span>KESTREL EXPEDITION NETWORK</span><b>ONLINE</b></header>
+        <header class="main-menu-system"><span>KESTREL EXPEDITION NETWORK</span><b id="main-menu-network-status">CONNECTING</b></header>
         <div id="main-menu-primary" class="main-menu-primary">
           <span class="main-menu-eyebrow">INTERSTELLAR SURVEY PROGRAM</span>
           <h1>WAYFARER</h1>
@@ -38,6 +38,10 @@
             <span><strong>BUILD OVERRIDE</strong><small>CONSTRUCTION COST BYPASS</small></span>
             <input id="main-menu-build-override" type="checkbox"><i aria-hidden="true"></i>
           </label>
+          <label class="main-menu-setting callsign" for="main-menu-player-name">
+            <span><strong>MULTIPLAYER CALLSIGN</strong><small>VISIBLE TO OTHER EXPLORERS</small></span>
+            <input id="main-menu-player-name" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" aria-label="Multiplayer callsign">
+          </label>
         </section>
         <footer class="main-menu-footer"><span>WAYFARER // KESTREL OS</span><b>BUILD 0.8.4</b></footer>
       </section>
@@ -50,6 +54,7 @@
             <div class="location-line"><span id="location">THALASSA • VERDANT MOON</span><b id="cycle-status">DAY · 09:36</b></div>
           </div>
         </div>
+        <div id="multiplayer-status" class="multiplayer-status connecting" title="LAN multiplayer status"><i></i><span>MULTIPLAYER</span><b id="multiplayer-count">CONNECTING</b></div>
         <div class="status-strip">
           <div class="status-item life-status">
             <div class="status-heading"><span class="status-label">LIFE SUPPORT</span><b id="life-readout">100%</b></div>
@@ -343,6 +348,10 @@
               <input id="setting-build-override" type="checkbox" role="switch" aria-label="Allow base building without resources">
               <i class="toggle-track" aria-hidden="true"></i>
             </label>
+            <label class="setting-row callsign-setting" for="setting-player-name">
+              <span><strong>Multiplayer Callsign</strong><small>The name shown above your explorer to other connected players.</small></span>
+              <input id="setting-player-name" type="text" maxlength="16" autocomplete="nickname" spellcheck="false" aria-label="Multiplayer callsign">
+            </label>
             <div class="setting-row setting-action">
               <span><strong>Clear Construction</strong><small>Remove every surface and underground structure from all planets. The Kestrel and its systems are preserved.</small></span>
               <button id="clear-all-buildings" class="danger-button" type="button">REMOVE ALL</button>
@@ -398,6 +407,6 @@
         <p>Verdant moon • Sentinel presence low</p>
       </div>
     </main>
-    <script src="game.js?v=inventory-overhaul-173"></script>
+    <script src="game.js?v=lan-multiplayer-174"></script>
   </body>
 </html>

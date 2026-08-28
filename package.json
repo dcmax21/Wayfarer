@@ -1,0 +1,14 @@
+{
+  "name": "wayfarer",
+  "version": "0.9.0",
+  "private": true,
+  "description": "LAN co-op server for the Wayfarer browser game",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}
+
